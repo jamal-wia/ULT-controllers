@@ -78,8 +78,9 @@ class FragmentNavigationController() : Fragment(), NavigationController {
         if (!isResume) savedTransactions.add(TransactionType.Back)
         childFragmentManager.beginTransaction()
             .detach(screens.last())
-            .commit()
             .also { screens.removeLast() }
+            .add(navigationContainer.id, screens.last())
+            .commit()
     }
 
     override fun goBack(): Boolean {
@@ -104,7 +105,7 @@ class FragmentNavigationController() : Fragment(), NavigationController {
             return false
         }
         childFragmentManager.beginTransaction()
-            .add(navigationContainer.id, fragment)
+            .replace(navigationContainer.id, fragment)
             .addToBackStack(fragment.toString())
             .commit()
             .also { screens.takeIf { !it.contains(fragment) }?.add(fragment) }

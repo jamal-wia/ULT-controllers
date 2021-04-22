@@ -8,7 +8,6 @@ android {
     buildToolsVersion = "30.0.3"
 
     defaultConfig {
-        applicationId = "com.navigation.ult_controllers"
         minSdkVersion ( 21)
         targetSdkVersion (30)
         versionCode = 1
