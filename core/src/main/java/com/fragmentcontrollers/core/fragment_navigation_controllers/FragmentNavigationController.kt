@@ -94,7 +94,10 @@ class FragmentNavigationController : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Replace(fragment))
             return false
         }
-        onBackPressed()
+        childFragmentManager.beginTransaction()
+            .detach(screensArgs.last())
+            .also { screensArgs.removeLast() }
+            .commit()
         goForward(fragment)
         return true
     }
@@ -119,10 +122,7 @@ class FragmentNavigationController : Fragment(), NavigationController {
         }
         val lastIndex = screensArgs.lastIndex
         for (index in lastIndex downTo 1) {
-            childFragmentManager.beginTransaction()
-                .detach(screensArgs[index])
-                .commit()
-                .also { screensArgs.removeAt(index) }
+            onBackPressed()
         }
         return true
     }
@@ -133,14 +133,8 @@ class FragmentNavigationController : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Replace(fragment))
             return false
         }
-        val lastIndex = screensArgs.lastIndex
-        for (index in lastIndex downTo 0) {
-            childFragmentManager.beginTransaction()
-                .detach(screensArgs[index])
-                .commitNow()
-                .also { screensArgs.removeAt(index) }
-        }
-        goForward(fragment)
+        reset()
+        replace(fragment)
         return true
     }
 
