@@ -16,12 +16,11 @@ class AppActivity : AppCompatActivity() {
         navigationController =
             supportFragmentManager.findFragmentByTag("app_navigationController")
                     as? FragmentNavigationController ?: FragmentNavigationController.Builder()
-                .addScreenToChain(ColorFragment.createInstance())
                 .show(R.id.app_container, supportFragmentManager, "app_navigationController")
                 .build()
 
         Handler().postDelayed({
-            navigationController.reset(ColorFragment.createInstance())
+            navigationController.replace(ColorFragment.createInstance())
         }, 3000)
     }
 

@@ -94,11 +94,18 @@ class FragmentNavigationController : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Replace(fragment))
             return false
         }
+        if (screensArgs.isEmpty()) {
+            return goForward(fragment)
+        }
+        val tag = fragment.tag ?: fragment.toString()
         childFragmentManager.beginTransaction()
-            .detach(screensArgs.last())
-            .also { screensArgs.removeLast() }
+            .replace(navigationContainer.id, fragment, tag)
+            .also {
+                screensArgs.removeLast()
+                screensArgs.add(fragment)
+            }
+            .addToBackStack(tag)
             .commit()
-        goForward(fragment)
         return true
     }
 
@@ -122,7 +129,7 @@ class FragmentNavigationController : Fragment(), NavigationController {
         }
         val lastIndex = screensArgs.lastIndex
         for (index in lastIndex downTo 1) {
-            onBackPressed()
+            goBack()
         }
         return true
     }
