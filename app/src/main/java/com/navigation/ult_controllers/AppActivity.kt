@@ -1,7 +1,7 @@
 package com.navigation.ult_controllers
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import com.fragmentcontrollers.core.fragment_navigation_controllers.FragmentNavigationController
 
 class AppActivity : AppCompatActivity() {
@@ -11,14 +11,16 @@ class AppActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_app)
-        navigationController = supportFragmentManager.findFragmentById(R.id.app_container)
-                as? FragmentNavigationController ?: FragmentNavigationController.Builder()
-            .addScreen(NumberFragment.createInstance(1))
-            .addScreen(NumberFragment.createInstance(2))
-            .addScreen(NumberFragment.createInstance(3))
-            .addScreen(NumberFragment.createInstance(4))
-            .showInContainer(R.id.app_container, this)
-            .build()
+        println("$this onCreate")
+        navigationController =
+            supportFragmentManager.findFragmentByTag("app_navigationController")
+                    as? FragmentNavigationController ?: FragmentNavigationController.Builder()
+                .addScreenToChain(ColorFragment.createInstance())
+                .addScreenToChain(ColorFragment.createInstance())
+                .addScreenToChain(ColorFragment.createInstance())
+                .addScreenToChain(ColorFragment.createInstance())
+                .show(R.id.app_container, supportFragmentManager, "app_navigationController")
+                .build()
     }
 
     override fun onBackPressed() {

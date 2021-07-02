@@ -6,29 +6,26 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.annotation.IdRes
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
+import androidx.fragment.app.FragmentManager
 import com.fragmentcontrollers.core.core.TransactionType
 import com.fragmentcontrollers.core.navigation_controllers.NavigationController
 
-class FragmentNavigationController() : Fragment(), NavigationController {
+class FragmentNavigationController : Fragment(), NavigationController {
 
-    private val screens by lazy { (requireArguments().get(Builder.SCREENS) as ArrayList<Fragment>) }
+    private val args by lazy { requireArguments() }
+    private val ctx by lazy { requireContext() }
+
+    private val screensArgs: ArrayList<Fragment> by lazy {
+        val list = args[Builder.SCREENS] as List<*>
+        list.map { it as Fragment } as ArrayList
+    }
+
     private val savedTransactions = arrayListOf<TransactionType>()
     private var isResume = false
 
-    constructor(containerId: Int, activity: FragmentActivity?) : this() {
-        if (containerId != -1) {
-            activity?.supportFragmentManager
-                ?.beginTransaction()
-                ?.addToBackStack(this.toString())
-                ?.add(containerId, this)
-                ?.commit()
-        }
-    }
-
     private val navigationContainer by lazy {
-        FragmentContainerView(requireContext()).apply {
+        FragmentContainerView(ctx).apply {
             id = View.generateViewId()
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -39,7 +36,7 @@ class FragmentNavigationController() : Fragment(), NavigationController {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        screens.forEach { goForward(it) }
+        screensArgs.forEach { goForward(it) }
     }
 
     override fun onCreateView(
@@ -71,22 +68,25 @@ class FragmentNavigationController() : Fragment(), NavigationController {
         super.onPause()
     }
 
-    override fun getCurrentFragment(): Fragment = screens.last()
+    override fun getCurrentFragment(): Fragment = screensArgs.last()
     override fun getContainerId(): Int = navigationContainer.id
-    override fun canGoBack(): Boolean = screens.size > 1
+    override fun canGoBack(): Boolean = screensArgs.size > 1
     override fun onBackPressed() {
-        if (!isResume) savedTransactions.add(TransactionType.Back)
+        if (!isResume) {
+            savedTransactions.add(TransactionType.Back)
+            return
+        }
         childFragmentManager.beginTransaction()
-            .detach(screens.last())
-            .also { screens.removeLast() }
-            .add(navigationContainer.id, screens.last())
+            .detach(screensArgs.last())
+            .also { screensArgs.removeLast() }
+            .add(navigationContainer.id, screensArgs.last())
             .commit()
     }
 
     override fun goBack(): Boolean {
         if (!canGoBack()) return false
         onBackPressed()
-            .also { return true }
+        return true
     }
 
     override fun replace(fragment: Fragment): Boolean {
@@ -96,7 +96,7 @@ class FragmentNavigationController() : Fragment(), NavigationController {
         }
         onBackPressed()
         goForward(fragment)
-            .also { return true }
+        return true
     }
 
     override fun goForward(fragment: Fragment): Boolean {
@@ -105,10 +105,10 @@ class FragmentNavigationController() : Fragment(), NavigationController {
             return false
         }
         childFragmentManager.beginTransaction()
-            .replace(navigationContainer.id, fragment)
-            .addToBackStack(fragment.toString())
+            .replace(navigationContainer.id, fragment, fragment.tag ?: fragment.toString())
+            .addToBackStack(fragment.tag ?: fragment.toString())
             .commit()
-            .also { screens.takeIf { !it.contains(fragment) }?.add(fragment) }
+            .also { screensArgs.takeIf { !it.contains(fragment) }?.add(fragment) }
             .also { return true }
     }
 
@@ -117,12 +117,12 @@ class FragmentNavigationController() : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Reset)
             return false
         }
-        val lastIndex = screens.lastIndex
+        val lastIndex = screensArgs.lastIndex
         for (index in lastIndex downTo 1) {
             childFragmentManager.beginTransaction()
-                .detach(screens[index])
+                .detach(screensArgs[index])
                 .commit()
-                .also { screens.removeAt(index) }
+                .also { screensArgs.removeAt(index) }
         }
         return true
     }
@@ -133,45 +133,98 @@ class FragmentNavigationController() : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Replace(fragment))
             return false
         }
-        val lastIndex = screens.lastIndex
+        val lastIndex = screensArgs.lastIndex
         for (index in lastIndex downTo 0) {
             childFragmentManager.beginTransaction()
-                .detach(screens[index])
+                .detach(screensArgs[index])
                 .commitNow()
-                .also { screens.removeAt(index) }
+                .also { screensArgs.removeAt(index) }
         }
         goForward(fragment)
         return true
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        args.putSerializable(Builder.SCREENS, screensArgs)
+    }
+
     class Builder {
 
         private val screens by lazy { arrayListOf<Fragment>() }
+        private var tag: String? = null
         private var containerId = -1
-        private var activity: FragmentActivity? = null
+        private var fragmentManager: FragmentManager? = null
 
-        fun addScreen(fragment: Fragment): Builder {
+        fun addScreenToChain(fragment: Fragment): Builder {
             screens.add(fragment)
             return this
         }
 
-        fun addScreens(fragment: List<Fragment>): Builder {
-            screens.addAll(fragment)
+        fun addScreensToChain(fragments: List<Fragment>): Builder {
+            screens.addAll(fragments)
             return this
         }
 
-        fun showInContainer(@IdRes containerId: Int, activity: FragmentActivity): Builder {
+        fun addScreensToChain(vararg fragments: Fragment): Builder {
+            screens.addAll(fragments)
+            return this
+        }
+
+        fun newRootScreen(fragment: Fragment): Builder {
+            screens.clear()
+            screens.add(fragment)
+            return this
+        }
+
+        fun newRootScreenChain(fragments: List<Fragment>): Builder {
+            screens.clear()
+            screens.addAll(fragments)
+            return this
+        }
+
+        fun newRootScreenChain(vararg fragments: Fragment): Builder {
+            screens.clear()
+            screens.addAll(fragments)
+            return this
+        }
+
+        fun show(
+            @IdRes containerId: Int,
+            fragmentManager: FragmentManager,
+            tag: String? = null
+        ): Builder {
             this.containerId = containerId
-            this.activity = activity
+            this.fragmentManager = fragmentManager
+            this.tag = tag
+            return this
+        }
+
+        /**
+         * The tag will not be used if you do not call show()
+         * */
+        fun setTag(tag: String): Builder {
+            this.tag = tag
             return this
         }
 
         fun build(): FragmentNavigationController {
             val args = Bundle()
             args.putSerializable(SCREENS, screens)
-            return FragmentNavigationController(containerId, activity).apply {
-                arguments = args
+
+            val fragmentNavigationController = FragmentNavigationController()
+            fragmentNavigationController.arguments = args
+
+            if (containerId != -1 && fragmentManager != null) {
+                fragmentManager!!.beginTransaction()
+                    .replace(
+                        containerId, fragmentNavigationController,
+                        tag ?: fragmentNavigationController.toString()
+                    )
+                    .addToBackStack(tag)
+                    .commit()
             }
+            return fragmentNavigationController
         }
 
         companion object {
