@@ -114,12 +114,18 @@ class FragmentNavigationController : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Forward(fragment))
             return false
         }
+        val tag = fragment.tag ?: fragment.toString()
         childFragmentManager.beginTransaction()
-            .replace(navigationContainer.id, fragment, fragment.tag ?: fragment.toString())
-            .addToBackStack(fragment.tag ?: fragment.toString())
+            .replace(navigationContainer.id, fragment, tag)
+            .addToBackStack(tag)
             .commit()
             .also { screensArgs.takeIf { !it.contains(fragment) }?.add(fragment) }
             .also { return true }
+    }
+
+    override fun goForward(vararg fragments: Fragment): Boolean {
+        fragments.forEach { goForward(it) }
+        return true
     }
 
     override fun reset(): Boolean {

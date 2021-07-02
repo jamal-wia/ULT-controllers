@@ -21,6 +21,10 @@ interface NavigationController :
         return false
     }
 
+    fun goForward(vararg fragments: Fragment): Boolean {
+        return false
+    }
+
     fun goBack(): Boolean {
         return false
     }
