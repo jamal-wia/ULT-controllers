@@ -85,19 +85,17 @@ class FragmentNavigationController : Fragment(), NavigationController {
     override fun getContainerId(): Int = navigationContainer.id
     override fun canGoBack(): Boolean = screensArgs.size > 1
     override fun onBackPressed() {
-        if (!isResume) {
-            savedTransactions.add(TransactionType.Back)
-            return
-        }
         childFragmentManager.popBackStack()
-            .also {
-                screensArgs.takeIf { it.isNotEmpty() }?.removeLast()
-                screenTagsArgs.takeIf { it.isNotEmpty() }?.removeLast()
-            }
+        screensArgs.takeIf { it.isNotEmpty() }?.removeLast()
+        screenTagsArgs.takeIf { it.isNotEmpty() }?.removeLast()
     }
 
     override fun goBack(): Boolean {
         if (!canGoBack()) return false
+        if (!isResume) {
+            savedTransactions.add(TransactionType.Back)
+            return false
+        }
         onBackPressed()
         return true
     }
