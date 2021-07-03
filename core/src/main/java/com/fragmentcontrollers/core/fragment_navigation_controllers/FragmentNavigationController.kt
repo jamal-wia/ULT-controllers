@@ -42,9 +42,12 @@ class FragmentNavigationController : Fragment(), NavigationController {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         firstOnCreate = savedInstanceState == null
-        if (screensArgs.isNotEmpty() && firstOnCreate) {
-            for (i in 0..screensArgs.size) {
-                goForward(screensArgs[i], screenTagsArgs[i])
+        if (screensArgs.isNotEmpty()) {
+            for (i in 0 until screensArgs.size) {
+                childFragmentManager.beginTransaction()
+                    .replace(navigationContainer.id, screensArgs[i], screenTagsArgs[i])
+                    .addToBackStack(tag ?: screensArgs[i].toString())
+                    .commit()
             }
         }
     }
@@ -86,11 +89,11 @@ class FragmentNavigationController : Fragment(), NavigationController {
             savedTransactions.add(TransactionType.Back)
             return
         }
-        childFragmentManager.beginTransaction()
-            .detach(screensArgs.last())
-            .also { screensArgs.removeLast() }
-            .add(navigationContainer.id, screensArgs.last())
-            .commit()
+        childFragmentManager.popBackStack()
+            .also {
+                screensArgs.takeIf { it.isNotEmpty() }?.removeLast()
+                screenTagsArgs.takeIf { it.isNotEmpty() }?.removeLast()
+            }
     }
 
     override fun goBack(): Boolean {
@@ -141,7 +144,8 @@ class FragmentNavigationController : Fragment(), NavigationController {
             .replace(navigationContainer.id, fragment, tag)
             .addToBackStack(tag ?: fragment.toString())
             .commit()
-        screensArgs.takeIf { !it.contains(fragment) }?.add(fragment)
+        screensArgs.add(fragment)
+        screenTagsArgs.add(tag)
         return true
     }
 
@@ -177,6 +181,8 @@ class FragmentNavigationController : Fragment(), NavigationController {
         super.onSaveInstanceState(outState)
         args.putSerializable(Builder.SCREENS_KEY, screensArgs.toList() as ArrayList)
         screensArgs.clear()
+        args.putStringArrayList(Builder.SCREENS_TAGS_KEY, screenTagsArgs.toList() as ArrayList)
+        screenTagsArgs.clear()
     }
 
     class Builder {
@@ -240,7 +246,7 @@ class FragmentNavigationController : Fragment(), NavigationController {
         }
 
         /**
-         * Ignore equal screen by tag
+         * Ignore equal screen by tag, don't worked if tag = null
          * */
         fun ignoreEqualScreen(ignore: Boolean): Builder {
             this.ignoreEqual = ignore
@@ -250,8 +256,11 @@ class FragmentNavigationController : Fragment(), NavigationController {
         fun build(): FragmentNavigationController {
             val args = Bundle()
             if (screens.isNotEmpty()) {
-                args.putStringArrayList(SCREENS_TAGS_KEY, screens.keys.toList() as ArrayList)
-                args.putSerializable(SCREENS_KEY, screens.values.toList() as ArrayList)
+                args.putStringArrayList(
+                    SCREENS_TAGS_KEY,
+                    screens.keys.toList() as? ArrayList ?: arrayListOf()
+                )
+                args.putSerializable(SCREENS_KEY, screens.values.toList() as? ArrayList)
             }
             args.putBoolean(IGNORE_EQUAL_KEY, ignoreEqual)
 

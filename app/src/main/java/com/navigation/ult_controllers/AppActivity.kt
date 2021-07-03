@@ -16,12 +16,15 @@ class AppActivity : AppCompatActivity() {
             supportFragmentManager.findFragmentByTag("app_navigationController")
                     as? FragmentNavigationController ?: FragmentNavigationController.Builder()
                 .ignoreEqualScreen(true)
+                .addScreenToChain(ColorFragment.createInstance(), "1")
+                .addScreenToChain(ColorFragment.createInstance(), "2")
+                .addScreenToChain(ColorFragment.createInstance(), "3")
                 .show(R.id.app_container, supportFragmentManager, "app_navigationController")
                 .build()
 
-        navigationController.goForward(ColorFragment.createInstance())
-        navigationController.goForward(ColorFragment.createInstance())
-        navigationController.goForward(ColorFragment.createInstance())
+//        navigationController.goForward(ColorFragment.createInstance())
+//        navigationController.goForward(ColorFragment.createInstance())
+//        navigationController.goForward(ColorFragment.createInstance())
 
 //        Handler().postDelayed({
 //            navigationController.replace(ColorFragment.createInstance())
