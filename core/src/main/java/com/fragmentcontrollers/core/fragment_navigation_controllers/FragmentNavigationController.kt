@@ -16,13 +16,18 @@ class FragmentNavigationController : Fragment(), NavigationController {
     private val args by lazy { requireArguments() }
     private val ctx by lazy { requireContext() }
 
+    private val ignoreEqualArgs by lazy { args.getBoolean(Builder.IGNORE_EQUAL_KEY, false) }
+    private val screenTagsArgs: ArrayList<String?> by lazy {
+        args.getStringArrayList(Builder.SCREENS_TAGS_KEY) ?: arrayListOf()
+    }
     private val screensArgs: ArrayList<Fragment> by lazy {
-        val list = args[Builder.SCREENS] as List<*>
-        list.map { it as Fragment } as ArrayList
+        val list = args[Builder.SCREENS_KEY] as? List<*>
+        list?.map { it as Fragment } as? ArrayList ?: arrayListOf()
     }
 
     private val savedTransactions = arrayListOf<TransactionType>()
     private var isResume = false
+    private var firstOnCreate = true
 
     private val navigationContainer by lazy {
         FragmentContainerView(ctx).apply {
@@ -36,7 +41,12 @@ class FragmentNavigationController : Fragment(), NavigationController {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        screensArgs.forEach { goForward(it) }
+        firstOnCreate = savedInstanceState == null
+        if (screensArgs.isNotEmpty() && firstOnCreate) {
+            for (i in 0..screensArgs.size) {
+                goForward(screensArgs[i], screenTagsArgs[i])
+            }
+        }
     }
 
     override fun onCreateView(
@@ -55,7 +65,7 @@ class FragmentNavigationController : Fragment(), NavigationController {
     private fun restoreTransactions(savedTransactions: List<TransactionType>) {
         savedTransactions.forEach {
             when (it) {
-                is TransactionType.Forward -> goForward(it.fragment)
+                is TransactionType.Forward -> goForward(it.fragment, it.tag)
                 is TransactionType.Replace -> replace(it.fragment)
                 is TransactionType.Back -> goBack()
                 is TransactionType.Reset -> reset()
@@ -89,42 +99,54 @@ class FragmentNavigationController : Fragment(), NavigationController {
         return true
     }
 
-    override fun replace(fragment: Fragment): Boolean {
+    override fun replace(fragment: Fragment, tag: String?): Boolean {
         if (!isResume) {
-            savedTransactions.add(TransactionType.Replace(fragment))
+            savedTransactions.add(TransactionType.Replace(fragment, tag))
             return false
         }
         if (screensArgs.isEmpty()) {
-            return goForward(fragment)
+            return goForward(fragment, null)
         }
-        val tag = fragment.tag ?: fragment.toString()
+        if (ignoreEqualArgs
+            && tag != null
+            && screenTagsArgs.contains(tag)
+        ) {
+            return false
+        }
         childFragmentManager.beginTransaction()
             .replace(navigationContainer.id, fragment, tag)
             .also {
-                screensArgs.removeLast()
+                screensArgs.takeIf { it.isNotEmpty() }?.removeLast()
                 screensArgs.add(fragment)
+                screenTagsArgs.takeIf { it.isNotEmpty() }?.removeLast()
+                screenTagsArgs.add(tag)
             }
-            .addToBackStack(tag)
+            .addToBackStack(tag ?: fragment.toString())
             .commit()
         return true
     }
 
-    override fun goForward(fragment: Fragment): Boolean {
+    override fun goForward(fragment: Fragment, tag: String?): Boolean {
         if (!isResume) {
-            savedTransactions.add(TransactionType.Forward(fragment))
+            savedTransactions.add(TransactionType.Forward(fragment, tag))
             return false
         }
-        val tag = fragment.tag ?: fragment.toString()
+        if (ignoreEqualArgs
+            && tag != null
+            && screenTagsArgs.contains(tag)
+        ) {
+            return false
+        }
         childFragmentManager.beginTransaction()
             .replace(navigationContainer.id, fragment, tag)
-            .addToBackStack(tag)
+            .addToBackStack(tag ?: fragment.toString())
             .commit()
-            .also { screensArgs.takeIf { !it.contains(fragment) }?.add(fragment) }
-            .also { return true }
+        screensArgs.takeIf { !it.contains(fragment) }?.add(fragment)
+        return true
     }
 
-    override fun goForward(vararg fragments: Fragment): Boolean {
-        fragments.forEach { goForward(it) }
+    override fun goForwardChain(vararg fragments: Fragment, tag: String?): Boolean {
+        fragments.forEach { goForward(it, tag) }
         return true
     }
 
@@ -140,7 +162,7 @@ class FragmentNavigationController : Fragment(), NavigationController {
         return true
     }
 
-    override fun reset(fragment: Fragment): Boolean {
+    override fun reset(fragment: Fragment, tag: String?): Boolean {
         if (!isResume) {
             savedTransactions.add(TransactionType.Reset)
             savedTransactions.add(TransactionType.Replace(fragment))
@@ -153,46 +175,48 @@ class FragmentNavigationController : Fragment(), NavigationController {
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        args.putSerializable(Builder.SCREENS, screensArgs)
+        args.putSerializable(Builder.SCREENS_KEY, screensArgs.toList() as ArrayList)
+        screensArgs.clear()
     }
 
     class Builder {
 
-        private val screens by lazy { arrayListOf<Fragment>() }
+        private val screens by lazy { hashMapOf<String?, Fragment>() }
         private var tag: String? = null
         private var containerId = -1
         private var fragmentManager: FragmentManager? = null
+        private var ignoreEqual = false
 
-        fun addScreenToChain(fragment: Fragment): Builder {
-            screens.add(fragment)
+        fun addScreenToChain(fragment: Fragment, tag: String? = null): Builder {
+            screens[tag] = fragment
             return this
         }
 
-        fun addScreensToChain(fragments: List<Fragment>): Builder {
-            screens.addAll(fragments)
+        fun addScreensToChain(fragments: List<Pair<String?, Fragment>>): Builder {
+            screens.putAll(fragments)
             return this
         }
 
-        fun addScreensToChain(vararg fragments: Fragment): Builder {
-            screens.addAll(fragments)
+        fun addScreensToChain(vararg fragments: Pair<String?, Fragment>): Builder {
+            screens.putAll(fragments)
             return this
         }
 
         fun newRootScreen(fragment: Fragment): Builder {
             screens.clear()
-            screens.add(fragment)
+            screens[tag] = fragment
             return this
         }
 
-        fun newRootScreenChain(fragments: List<Fragment>): Builder {
+        fun newRootScreenChain(fragments: List<Pair<String?, Fragment>>): Builder {
             screens.clear()
-            screens.addAll(fragments)
+            screens.putAll(fragments)
             return this
         }
 
-        fun newRootScreenChain(vararg fragments: Fragment): Builder {
+        fun newRootScreenChain(vararg fragments: Pair<String?, Fragment>): Builder {
             screens.clear()
-            screens.addAll(fragments)
+            screens.putAll(fragments)
             return this
         }
 
@@ -210,14 +234,26 @@ class FragmentNavigationController : Fragment(), NavigationController {
         /**
          * The tag will not be used if you do not call show()
          * */
-        fun setTag(tag: String): Builder {
+        fun changeTag(tag: String): Builder {
             this.tag = tag
+            return this
+        }
+
+        /**
+         * Ignore equal screen by tag
+         * */
+        fun ignoreEqualScreen(ignore: Boolean): Builder {
+            this.ignoreEqual = ignore
             return this
         }
 
         fun build(): FragmentNavigationController {
             val args = Bundle()
-            args.putSerializable(SCREENS, screens)
+            if (screens.isNotEmpty()) {
+                args.putStringArrayList(SCREENS_TAGS_KEY, screens.keys.toList() as ArrayList)
+                args.putSerializable(SCREENS_KEY, screens.values.toList() as ArrayList)
+            }
+            args.putBoolean(IGNORE_EQUAL_KEY, ignoreEqual)
 
             val fragmentNavigationController = FragmentNavigationController()
             fragmentNavigationController.arguments = args
@@ -235,7 +271,9 @@ class FragmentNavigationController : Fragment(), NavigationController {
         }
 
         companion object {
-            const val SCREENS = "screens"
+            const val SCREENS_TAGS_KEY = "screens_tags"
+            const val SCREENS_KEY = "screens"
+            const val IGNORE_EQUAL_KEY = "ignore_equal"
         }
     }
 }

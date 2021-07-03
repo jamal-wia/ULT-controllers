@@ -9,8 +9,8 @@ android {
 
     defaultConfig {
         applicationId = "com.navigation.ult_controllers"
-        minSdkVersion ( 21)
-        targetSdkVersion (30)
+        minSdkVersion(21)
+        targetSdkVersion(30)
         versionCode = 1
         versionName = "1.0"
 
@@ -42,6 +42,8 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.3.0")
     implementation("com.google.android.material:material:1.3.0")
     implementation("androidx.constraintlayout:constraintlayout:2.0.4")
+
+    debugImplementation("com.squareup.leakcanary:leakcanary-android:2.7")
 
     implementation(project(":core"))
     testImplementation("junit:junit:4.13.2")

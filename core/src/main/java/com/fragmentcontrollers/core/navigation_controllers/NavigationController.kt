@@ -17,11 +17,11 @@ interface NavigationController :
 
     }
 
-    fun goForward(fragment: Fragment): Boolean {
+    fun goForward(fragment: Fragment, tag: String? = null): Boolean {
         return false
     }
 
-    fun goForward(vararg fragments: Fragment): Boolean {
+    fun goForwardChain(vararg fragments: Fragment, tag: String? = null): Boolean {
         return false
     }
 
@@ -29,7 +29,7 @@ interface NavigationController :
         return false
     }
 
-    fun replace(fragment: Fragment): Boolean {
+    fun replace(fragment: Fragment, tag: String? = null): Boolean {
         return false
     }
 
@@ -37,7 +37,7 @@ interface NavigationController :
         return false
     }
 
-    fun reset(fragment: Fragment): Boolean {
+    fun reset(fragment: Fragment, tag: String? = null): Boolean {
         return false
     }
 }
